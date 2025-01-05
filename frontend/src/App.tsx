@@ -1,12 +1,11 @@
-import React from 'react';
-import UrlInput from './UrlInput';
-import './App.css';
+import React from "react";
+import UrlInput from "./UrlInput";
 
 function App() {
   return (
-    <form className="App">
-       <UrlInput/>
-    </form>
+    <div className="h-screen flex justify-center items-center">
+         <UrlInput />
+     </div>
   );
 }
 

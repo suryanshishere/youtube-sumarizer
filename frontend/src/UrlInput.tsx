@@ -1,11 +1,12 @@
-import React from 'react'
+import React from "react";
 
 const UrlInput = () => {
   return (
-    <div>
-      
-    </div>
-  )
-}
+    <form>
+      <input />
+      <button>Get Summary</button>
+    </form>
+  );
+};
 
-export default UrlInput
+export default UrlInput;
