@@ -52,6 +52,7 @@ export const youtubeUrlResponse = async (
       summary: summaryText,
     });
   } catch (error) {
+    console.log(error)
     return next(
       new HttpError("Fetching youtube summary failed, try again!", 500)
     );
