@@ -4,31 +4,50 @@ import HttpError from "@utils/http-error";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY!;
-const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST!;
-const API_URL = `https://${RAPIDAPI_HOST}`;
-  
 
 export const getYoutubeTranscript = async (url: string): Promise<string> => {
   try {
-    const response = await axios.get(`${API_URL}/transcript`, {
-      headers: {
-        'X-RapidAPI-Key': RAPIDAPI_KEY,
-        'X-RapidAPI-Host': RAPIDAPI_HOST,
-      },
+    const videoId = extractVideoId(url);
+    const options = {
+      method: "GET",
+      url: "https://youtube-transcriptor.p.rapidapi.com/transcript",
       params: {
-        url: url,
+        video_id: videoId,
+        lang: "en",
       },
-    });
+      headers: {
+        "x-rapidapi-key": RAPIDAPI_KEY,
+        "x-rapidapi-host": "youtube-transcriptor.p.rapidapi.com",
+      },
+    };
+    const response = await axios.request(options);
 
-    const transcript = response.data.transcript;
-    if (!transcript) throw new Error('Transcript not found');
+    if (!response.data[0]) throw new Error("Transcript not found");
 
-    return transcript;
+    return response.data[0].transcriptionAsText;
   } catch (error: any) {
-    console.error('Error fetching transcript:', error.message);
-    throw new Error(error.response?.data?.message || 'Failed to fetch transcript');
+    console.error("Error fetching transcript:", error.message);
+    throw new Error(
+      error.response?.data?.message || "Failed to fetch transcript"
+    );
   }
 };
+
+const extractVideoId = (url: string): string => {
+  const regex =
+    /(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+
+  const match = url.match(regex);
+
+  if (match && (match[1] || match[2])) {
+    const videoId = match[1] || match[2];
+    return videoId;
+  }
+
+  console.error("Invalid YouTube URL: Could not extract video ID");
+  throw new Error("Invalid YouTube URL");
+};
+
 const summarizeTranscript = async (
   transcript: string,
   apiKey: string
