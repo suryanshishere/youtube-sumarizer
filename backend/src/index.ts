@@ -13,7 +13,7 @@ const app = express();
 
 app.use(bodyParser.json());
 app.use(cors());
-app.post("/api/youtube-url-summary", youtubeUrlResponse);
+app.post("/api/get-summary", youtubeUrlResponse);
 
 //Error showing if none of the routes found!
 app.use((req: Request, res: Response, next: NextFunction) => {
