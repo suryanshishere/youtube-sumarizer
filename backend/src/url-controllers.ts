@@ -3,6 +3,43 @@ import axios from "axios";
 import HttpError from "@utils/http-error";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY!;
+const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST!;
+const API_URL = `https://${RAPIDAPI_HOST}`;
+  
+
+export const getYoutubeTranscript = async (url: string): Promise<string> => {
+  try {
+    const response = await axios.get(`${API_URL}/transcript`, {
+      headers: {
+        'X-RapidAPI-Key': RAPIDAPI_KEY,
+        'X-RapidAPI-Host': RAPIDAPI_HOST,
+      },
+      params: {
+        url: url,
+      },
+    });
+
+    const transcript = response.data.transcript;
+    if (!transcript) throw new Error('Transcript not found');
+
+    return transcript;
+  } catch (error: any) {
+    console.error('Error fetching transcript:', error.message);
+    throw new Error(error.response?.data?.message || 'Failed to fetch transcript');
+  }
+};
+const summarizeTranscript = async (
+  transcript: string,
+  apiKey: string
+): Promise<string> => {
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const prompt = `${transcript} Summarise into points.`;
+  const result = await model.generateContent(prompt);
+  return result.response?.text() ?? "No summary generated.";
+};
+
 export const youtubeUrlResponse = async (
   req: Request,
   res: Response,
@@ -15,81 +52,19 @@ export const youtubeUrlResponse = async (
       return res.status(400).json({ message: "YouTube URL is required." });
     }
 
-    // Extract video ID from the URL
-    const videoId = youtubeUrl.split("v=")[1].split("&")[0];
+    const transcript = await getYoutubeTranscript(youtubeUrl);
 
-    const apiKey = process.env.YOUTUBE_API_KEY;
-    if (!apiKey) {
-      return next(new HttpError("YouTube API Key not found!", 400));
-    }
-
-    const captionResponse = await axios.get(
-      `https://www.googleapis.com/youtube/v3/captions`,
-      {
-        params: {
-          part: "snippet",
-          videoId,
-          key: apiKey,
-        },
-      }
+    const summary = await summarizeTranscript(
+      transcript,
+      process.env.GEMINI_API_KEY!
     );
-
-    if (
-      !captionResponse.data.items ||
-      captionResponse.data.items.length === 0
-    ) {
-      return res
-        .status(404)
-        .json({ message: "No captions found for the video." });
-    }
-
-    const captionId = captionResponse.data.items[0].id;
-
-    const transcriptResponse = await axios.get(
-      `https://www.googleapis.com/youtube/v3/captions/${captionId}`,
-      {
-        params: {
-          key: apiKey,
-        },
-        responseType: "text",
-      }
-    );
-
-    const transcriptText = transcriptResponse.data;
-
-    if (!transcriptText) {
-      return res.status(404).json({ message: "Transcript not found." });
-    }
-    
-    //using gemini instead of chatgpt cuz my api has being exhausted!
-    const key = process.env.GEMINI_API_KEY;
-
-    if (!key) {
-      return next(new HttpError("API KEY not found!", 400));
-    }
-
-    const genAI = new GoogleGenerativeAI(key);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    const prompt = `${transcriptText} Summarize into points.`;
-
-    const result = await model.generateContent(prompt);
-    if (!result) {
-      return next(new HttpError("No prompt result received!", 400));
-    }
-
-    const summaryText = result.response.text();
-
-    if (!summaryText) {
-      return res.status(500).json({ message: "Error in generating summary." });
-    }
 
     res.status(200).json({
       message: "Transcript summarized successfully!",
-      summary: summaryText,
+      summary,
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return next(
       new HttpError("Fetching YouTube summary failed, try again!", 500)
     );
