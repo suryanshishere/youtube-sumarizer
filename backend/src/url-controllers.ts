@@ -22,13 +22,16 @@ export const getYoutubeTranscript = async (url: string): Promise<string> => {
     };
     const response = await axios.request(options);
 
-    if (!response.data[0]) throw new Error("Transcript not found");
+    if (!response.data[0]) {
+      throw new HttpError("Transcript not found", 400);
+    }
 
     return response.data[0].transcriptionAsText;
   } catch (error: any) {
     console.error("Error fetching transcript:", error.message);
-    throw new Error(
-      error.response?.data?.message || "Failed to fetch transcript"
+    throw new HttpError(
+      error.response?.data?.message || "Failed to fetch transcript",
+      500
     );
   }
 };
@@ -36,16 +39,14 @@ export const getYoutubeTranscript = async (url: string): Promise<string> => {
 const extractVideoId = (url: string): string => {
   const regex =
     /(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-
   const match = url.match(regex);
 
-  if (match && (match[1] || match[2])) {
-    const videoId = match[1] || match[2];
-    return videoId;
+  if (match && match[1]) {
+    return match[1];
   }
 
   console.error("Invalid YouTube URL: Could not extract video ID");
-  throw new Error("Invalid YouTube URL");
+  throw new HttpError("Invalid YouTube URL", 400);
 };
 
 const summarizeTranscript = async (
@@ -82,10 +83,8 @@ export const youtubeUrlResponse = async (
       message: "Transcript summarized successfully!",
       summary,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    return next(
-      new HttpError("Fetching YouTube summary failed, try again!", 500)
-    );
+    next(new HttpError("Fetching YouTube summary failed, try again!", 500));
   }
 };
